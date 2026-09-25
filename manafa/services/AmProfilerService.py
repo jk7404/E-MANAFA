@@ -19,6 +19,18 @@ SLICE_QUERY = (
     "ON e.track_id = s.track_id ORDER BY s.ts"
 )
 
+def get_launcher_activity(package_name):
+    """returns the app's first launcher activity as <package>/<activity>.
+
+    resolve-activity returns the system chooser when the app has several launcher
+    activities (e.g. debug builds with LeakCanary), so the launchers are queried directly.
+    """
+    res = execute_shell_command(
+        "adb shell cmd package query-activities --brief -a android.intent.action.MAIN "
+        "-c android.intent.category.LAUNCHER %s | grep %s/ | head -n 1" % (package_name, package_name))
+    return res[1].strip()
+
+
 def convert_to_csv(file_to_convert, results_dir=None):
     #  ~/repos/research/perfetto/tools/trace_processor tracefile -Q "SELECT name, ts, dur, depth FROM slice ORDER BY ts"
     results_dir = results_dir if results_dir is not None else os.path.dirname(file_to_convert)
@@ -79,12 +91,7 @@ class AmProfilerService(Service):
             f"find {self.results_dir} -type f -name \"*.csv\"  | xargs rm ")
         startup_output_filename = self.get_results_filename(run_id)
         log("Am Profiler run id:  %s" % run_id)
-        # resolve-activity returns the system chooser when the app has several launcher
-        # activities (e.g. debug builds with LeakCanary); take the first launcher instead.
-        res = execute_shell_command(
-            "adb shell cmd package query-activities --brief -a android.intent.action.MAIN "
-            "-c android.intent.category.LAUNCHER %s | grep %s/ | head -n 1" % (self.package_name, self.package_name))
-        activity_package = res[1].strip()
+        activity_package = get_launcher_activity(self.package_name)
         cmd = " adb shell am start -S -n %s -P %s" % (activity_package, startup_output_filename )
         res = execute_shell_command(cmd)
         print(res)
