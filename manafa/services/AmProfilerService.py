@@ -101,7 +101,9 @@ class AmProfilerService(Service):
         time.sleep(1)
         output_filename_exec = startup_output_filename.replace(".trace", "_exec.trace")
         # adb shell am profile start --sampling 1000 com.sanad.gpt4o.myapplication /data/local/tmp/manual_startup.trace
-        cmd = f"adb shell am profile start --sampling {PROFILING_SAMPLE_RATE} %s %s" % (self.package_name, output_filename_exec)
+        # --streaming: without it ART buffers the trace in memory (8 MB) and, once a
+        # longer workload overflows it, writes an empty file at stop.
+        cmd = f"adb shell am profile start --sampling {PROFILING_SAMPLE_RATE} --streaming %s %s" % (self.package_name, output_filename_exec)
         log("Profiling exec with Am Profiler: " + cmd)
         res = execute_shell_command(cmd)
         print(res)

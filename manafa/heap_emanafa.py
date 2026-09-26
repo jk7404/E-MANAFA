@@ -9,8 +9,12 @@ from manafa.utils.Utils import execute_shell_command, get_results_dir
 
 DEVICE_TRACE_PATH = "/data/misc/perfetto-traces/manafa_heap_trace"
 MIN_SDK = 30  # java_hprof requires Android 11+
+# write_into_file drains the buffer to the output file every second; without it
+# the buffer fills after ~4 heap graphs (~16 MB each) and DISCARD drops the rest.
 CONFIG_TEMPLATE = """\
 buffers: {{ size_kb: 65536  fill_policy: DISCARD }}
+write_into_file: true
+file_write_period_ms: 1000
 data_sources: {{
   config {{
     name: "android.java_hprof"
