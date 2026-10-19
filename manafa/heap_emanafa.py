@@ -8,6 +8,8 @@ from manafa.utils.Logger import log, LogSeverity
 from manafa.utils.Utils import execute_shell_command, get_results_dir
 
 DEVICE_TRACE_PATH = "/data/misc/perfetto-traces/manafa_heap_trace"
+# perfetto finishes the heap graph it is dumping before it exits
+STOP_TIMEOUT_S = 60
 MIN_SDK = 30  # java_hprof requires Android 11+
 # write_into_file drains the buffer to the output file every second; without it
 # the buffer fills after ~4 heap graphs (~16 MB each) and DISCARD drops the rest.
@@ -82,12 +84,13 @@ class HeapEManafa(object):
         if run_id is None:
             run_id = execute_shell_command("date +%s")[1].strip()
         execute_shell_command(f"adb shell kill {self.pid}")
-        for _ in range(10):
-            if not self._is_running(self.pid):
-                break
+        deadline = time.monotonic() + STOP_TIMEOUT_S
+        while self._is_running(self.pid):
+            if time.monotonic() > deadline:
+                # a retry starts its own capture into the same trace file
+                execute_shell_command(f"adb shell kill -9 {self.pid}")
+                raise Exception(f"perfetto (pid {self.pid}) still running {STOP_TIMEOUT_S} s after kill")
             time.sleep(0.5)
-        else:
-            raise Exception(f"perfetto (pid {self.pid}) still running after kill")
         self.trace_out_file = os.path.join(self.results_dir, f"heap-{run_id}.perfetto-trace")
         res, o, e = execute_shell_command(f"adb pull {DEVICE_TRACE_PATH} {self.trace_out_file}")
         if res != 0:
