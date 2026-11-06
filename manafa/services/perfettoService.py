@@ -112,7 +112,10 @@ class PerfettoService(Service):
         """
         if file_id is None:
             file_id = execute_shell_command("date +%s")[1].strip()
-        res, o, e = execute_shell_command("adb shell killall perfetto")
+        # only our own perfetto: shell cannot signal one another user started (statsd runs its own
+        # traces), so killall exits non-zero then, and the traced restart below would cut our trace
+        # file short while perfetto is still writing it
+        res, o, e = execute_shell_command("adb shell pkill -u shell -x perfetto")
         if res != 0:
             x = execute_shell_command("adb shell setprop persist.traced.enable 0")
             print(x)
