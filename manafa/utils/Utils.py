@@ -45,7 +45,11 @@ def get_pack_dir(packname="manafa"):
 
 def get_results_dir(packname="manafa", default_results_dir="results"):
     ref_dir = get_reference_dir(packname)
-    return os.path.join(ref_dir, default_results_dir)
+    # one folder per phone (ANDROID_SERIAL): a session deletes the old traces in its
+    # folder when it starts, which took the traces of a session running on another phone
+    results_dir = os.path.join(ref_dir, default_results_dir, os.environ.get("ANDROID_SERIAL", ""))
+    os.makedirs(results_dir, exist_ok=True)
+    return results_dir
 
 
 def execute_shell_command(cmd, args=[]):
